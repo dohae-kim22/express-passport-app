@@ -3,9 +3,36 @@ const mongoose = require("mongoose");
 const path = require("path");
 const User = require("./models/users.model");
 const passport = require("passport");
+const cookieSession = require("cookie-session");
 
 const app = express();
 const port = 4000;
+
+const cookieEncryptionKey = "super-secret-key";
+
+app.use(
+  cookieSession({
+    keys: [cookieEncryptionKey],
+  })
+);
+
+app.use(function (req, res, next) {
+  if (req.session && !req.session.regenerate) {
+    req.session.regenerate = (cb) => {
+      cb();
+    };
+  }
+  if (req.session && !req.session.save) {
+    req.session.save = (cb) => {
+      cb();
+    };
+  }
+  next();
+});
+
+app.use(passport.initialize());
+app.use(passport.session());
+require("./config/passport");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -27,12 +54,27 @@ mongoose
     console.log(err);
   });
 
+app.get("/", (req, res) => {
+  res.render("index");
+});
+
 app.get("/login", (req, res) => {
   res.render("login");
 });
 
 app.post("/login", (req, res, next) => {
-  passport.authenticate("local");
+  passport.authenticate("local", (err, user, info) => {
+    if (err) return next(err);
+
+    if (!user) {
+      return res.json({ msg: info });
+    }
+
+    req.logIn(user, function (err) {
+      if (err) return next(err);
+      res.redirect("/");
+    });
+  })(req, res, next);
 });
 
 app.get("/signup", (req, res) => {
