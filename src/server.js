@@ -3,21 +3,23 @@ const mongoose = require("mongoose");
 const path = require("path");
 const User = require("./models/users.model");
 const passport = require("passport");
+const config = require("config");
 const cookieSession = require("cookie-session");
 const {
   checkAuthenticated,
   checkNotAuthenticated,
 } = require("./middleware/auth");
+require("dotenv").config();
+
+const serverConfig = config.get("server");
 
 const app = express();
-const port = 4000;
-
-const cookieEncryptionKey = "super-secret-key";
+const port = serverConfig.port;
 
 app.use(
   cookieSession({
     name: "cookie-session",
-    keys: [cookieEncryptionKey],
+    keys: [process.env.COOKIE_ENCRYPTION_KEY],
   })
 );
 
@@ -49,9 +51,7 @@ app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
 mongoose
-  .connect(
-    `mongodb+srv://dohaekim22:dohaekim22@cluster0.aappggr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
-  )
+  .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("Connected to DB");
   })
@@ -81,6 +81,15 @@ app.post("/login", (req, res, next) => {
     });
   })(req, res, next);
 });
+
+app.get("/auth/google", passport.authenticate("google"));
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", {
+    successReturnToOrRedirect: "/",
+    failureRedirect: "/login",
+  })
+);
 
 app.get("/signup", checkNotAuthenticated, (req, res) => {
   res.render("signup");
